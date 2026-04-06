@@ -324,6 +324,42 @@
       display: none;
     }
 
+    .reconnect-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(16, 26, 13, 0.5);
+      display: grid;
+      place-items: center;
+      padding: 1rem;
+      z-index: 30;
+    }
+
+    .reconnect-overlay.hidden {
+      display: none;
+    }
+
+    .reconnect-card {
+      width: min(520px, 100%);
+      background: #fff;
+      border-radius: 14px;
+      border: 2px solid rgba(0, 0, 0, 0.12);
+      box-shadow: 0 16px 28px rgba(0, 0, 0, 0.24);
+      padding: 1rem;
+      text-align: center;
+    }
+
+    .reconnect-card h2 {
+      margin: 0;
+      color: var(--accent);
+      font-size: 1.35rem;
+    }
+
+    .reconnect-card p {
+      margin: 0.55rem 0 0;
+      line-height: 1.35;
+      opacity: 0.9;
+    }
+
     .modal {
       width: min(640px, 100%);
       background: #fff;
@@ -483,6 +519,7 @@
       <h1 class="title">Jungle Sort Showdown</h1>
       <div class="toolbar-actions">
         <button id="helpGameBtn" class="btn btn-info" type="button">Help</button>
+        <button id="reconnectPhonesBtn" class="btn btn-info" type="button">Reconnect Phones</button>
         <button id="toggleVoiceBtn" class="btn btn-secondary" type="button">Voice: On</button>
         <button id="restartBtn" class="btn btn-secondary" type="button">Restart</button>
       </div>
@@ -544,6 +581,13 @@
       </ul>
       <p>Voice mode tips: say the visible item name like "lion" or "moss", or say the item number like "one", "two", "three", or "four". You can also say "help", "stop listening", and "start listening".</p>
       <button id="closeHelpBtn" class="btn btn-primary" type="button">Close</button>
+    </section>
+  </div>
+
+  <div id="reconnectOverlay" class="reconnect-overlay hidden" aria-live="assertive" aria-hidden="true">
+    <section class="reconnect-card" role="status" aria-atomic="true">
+      <h2>Paused for Reconnect</h2>
+      <p id="reconnectOverlayText">Reconnecting phones. Please wait...</p>
     </section>
   </div>
 
@@ -615,6 +659,7 @@
       startGameBtn: document.getElementById("startGameBtn"),
       restartBtn: document.getElementById("restartBtn"),
       helpGameBtn: document.getElementById("helpGameBtn"),
+      reconnectPhonesBtn: document.getElementById("reconnectPhonesBtn"),
       toggleVoiceBtn: document.getElementById("toggleVoiceBtn"),
       categoryName: document.getElementById("categoryName"),
       turnStatus: document.getElementById("turnStatus"),
@@ -644,7 +689,9 @@
       qrATitle: document.getElementById("qrATitle"),
       qrBTitle: document.getElementById("qrBTitle"),
       helpModalBackdrop: document.getElementById("helpModalBackdrop"),
-      closeHelpBtn: document.getElementById("closeHelpBtn")
+      closeHelpBtn: document.getElementById("closeHelpBtn"),
+      reconnectOverlay: document.getElementById("reconnectOverlay"),
+      reconnectOverlayText: document.getElementById("reconnectOverlayText")
     };
 
     initVoiceSupport();
@@ -656,6 +703,7 @@
     els.publicBaseUrlInput.addEventListener("blur", onPublicBaseUrlBlur);
     els.helpSetupBtn.addEventListener("click", openHelpModal);
     els.helpGameBtn.addEventListener("click", openHelpModal);
+    els.reconnectPhonesBtn.addEventListener("click", reconnectPhonesDuringGame);
     els.closeHelpBtn.addEventListener("click", closeHelpModal);
     els.helpModalBackdrop.addEventListener("click", event => {
       if (event.target === els.helpModalBackdrop) {
@@ -729,7 +777,10 @@
       configureVoiceMode(state.voiceEnabled);
 
       if (state.phonesEnabled) {
-        await setupPhoneControllers();
+        const hasExistingSession = Boolean(state.remote.sessionId && state.remote.hostKey);
+        if (!hasExistingSession) {
+          await setupPhoneControllers();
+        }
         if (state.phonesEnabled && state.remote.sessionId) {
           connectHostSocket();
         }
@@ -761,6 +812,78 @@
 
     function toggleVoiceMode() {
       configureVoiceMode(!state.voiceWanted);
+    }
+
+    async function reconnectPhonesDuringGame() {
+      if (!state.gameStarted) {
+        return;
+      }
+
+      if (!state.phonesEnabled) {
+        els.hint.textContent = "Phone controllers are off. Enable them first.";
+        return;
+      }
+
+      if (state.isLocked) {
+        els.hint.textContent = "Please wait for the current pick to finish, then reconnect.";
+        return;
+      }
+
+      const previousVoiceWanted = state.voiceWanted;
+      const preservedTimeLeft = state.timeLeft;
+
+      state.isLocked = true;
+      stopTurnTimer();
+      stopVoiceRecognition();
+      disableAllItems();
+      setReconnectOverlay(true, "Reconnecting phones. Rescan QR codes if needed.");
+      updatePhoneStatus("Phones: reconnecting");
+      els.hint.textContent = "Reconnecting phones. Rescan QR codes if needed.";
+
+      try {
+        const hasExistingSession = Boolean(state.remote.sessionId && state.remote.hostKey);
+        if (!hasExistingSession) {
+          await setupPhoneControllers();
+        }
+
+        if (state.phonesEnabled && state.remote.sessionId) {
+          connectHostSocket();
+          await waitForHostSocketOpen(3000);
+          sendActiveTeamToPhones(state.teamTurn);
+        }
+
+        if (state.remote.ws && state.remote.ws.readyState === WebSocket.OPEN) {
+          els.hint.textContent = "Phones reconnected. Continue playing.";
+        } else {
+          els.hint.textContent = "Phones are not fully connected yet. Rescan QR codes and try again.";
+        }
+      } finally {
+        state.timeLeft = preservedTimeLeft;
+        renderItems();
+        renderTurn();
+        resumeTurnTimer();
+        state.isLocked = false;
+        setReconnectOverlay(false);
+
+        if (previousVoiceWanted) {
+          configureVoiceMode(true);
+        }
+      }
+    }
+
+    function setReconnectOverlay(visible, message) {
+      const shouldShow = Boolean(visible);
+      if (shouldShow) {
+        els.reconnectOverlay.classList.remove("hidden");
+        els.reconnectOverlay.setAttribute("aria-hidden", "false");
+      } else {
+        els.reconnectOverlay.classList.add("hidden");
+        els.reconnectOverlay.setAttribute("aria-hidden", "true");
+      }
+
+      if (message) {
+        els.reconnectOverlayText.textContent = String(message);
+      }
     }
 
     async function onPhonesToggleChange() {
@@ -1300,6 +1423,58 @@
           onTurnTimeout();
         }
       }, 1000);
+    }
+
+    function resumeTurnTimer() {
+      stopTurnTimer();
+      renderTimer();
+
+      state.timerId = window.setInterval(() => {
+        state.timeLeft -= 1;
+        renderTimer();
+
+        if (state.timeLeft <= 0) {
+          onTurnTimeout();
+        }
+      }, 1000);
+    }
+
+    function waitForHostSocketOpen(timeoutMs) {
+      return new Promise(resolve => {
+        const ws = state.remote.ws;
+        if (!ws) {
+          resolve(false);
+          return;
+        }
+
+        if (ws.readyState === WebSocket.OPEN) {
+          resolve(true);
+          return;
+        }
+
+        let settled = false;
+        const complete = value => {
+          if (settled) {
+            return;
+          }
+          settled = true;
+          resolve(value);
+        };
+
+        const timer = window.setTimeout(() => {
+          complete(false);
+        }, Math.max(300, Number(timeoutMs) || 2000));
+
+        ws.addEventListener("open", () => {
+          window.clearTimeout(timer);
+          complete(true);
+        }, { once: true });
+
+        ws.addEventListener("close", () => {
+          window.clearTimeout(timer);
+          complete(false);
+        }, { once: true });
+      });
     }
 
     function stopTurnTimer() {
