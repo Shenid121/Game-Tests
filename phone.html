@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Team Controller</title>
+  <style>
+    :root {
+      --bg: #f3f9ee;
+      --panel: #ffffff;
+      --ink: #1b2a16;
+      --accent: #1f7a3a;
+      --muted: #5e6d5a;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+      background: radial-gradient(circle at 20% 20%, #ffffff 0%, transparent 40%),
+        linear-gradient(180deg, #f5ffe6, var(--bg));
+      color: var(--ink);
+      display: grid;
+      place-items: center;
+      padding: 1rem;
+    }
+
+    .card {
+      width: min(480px, 100%);
+      background: var(--panel);
+      border-radius: 16px;
+      border: 2px solid rgba(0, 0, 0, 0.08);
+      padding: 1rem;
+      box-shadow: 0 14px 24px rgba(0, 0, 0, 0.1);
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 1.3rem;
+      color: var(--accent);
+      text-align: center;
+    }
+
+    .team {
+      margin-top: 0.35rem;
+      text-align: center;
+      font-weight: 700;
+    }
+
+    .status {
+      margin-top: 0.45rem;
+      text-align: center;
+      color: var(--muted);
+      min-height: 1.2rem;
+    }
+
+    .grid {
+      margin-top: 0.9rem;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.7rem;
+    }
+
+    button {
+      border: 0;
+      border-radius: 12px;
+      min-height: 88px;
+      font-size: 2rem;
+      font-weight: 800;
+      cursor: pointer;
+      background: #d8f2dc;
+      color: #0e5d28;
+    }
+
+    button:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <h1>Jungle Sort Controller</h1>
+    <p id="teamLabel" class="team">Team</p>
+    <p id="status" class="status">Connecting...</p>
+
+    <section class="grid">
+      <button data-value="1" type="button">1</button>
+      <button data-value="2" type="button">2</button>
+      <button data-value="3" type="button">3</button>
+      <button data-value="4" type="button">4</button>
+    </section>
+  </main>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const session = params.get("session") || "";
+    const team = (params.get("team") || "").toUpperCase();
+    const token = params.get("token") || "";
+    const teamName = params.get("name") || `Team ${team}`;
+
+    const teamLabel = document.getElementById("teamLabel");
+    const statusEl = document.getElementById("status");
+    const buttons = [...document.querySelectorAll("button[data-value]")];
+
+    teamLabel.textContent = teamName;
+
+    if (!session || !(team === "A" || team === "B") || !token) {
+      statusEl.textContent = "Invalid team link.";
+      buttons.forEach(btn => { btn.disabled = true; });
+    } else {
+      connect();
+    }
+
+    function setButtonsEnabled(enabled) {
+      buttons.forEach(btn => {
+        btn.disabled = !enabled;
+      });
+    }
+
+    function connect() {
+      const wsProto = window.location.protocol === "https:" ? "wss" : "ws";
+      const ws = new WebSocket(`${wsProto}://${window.location.host}/ws?role=phone&session=${encodeURIComponent(session)}&team=${encodeURIComponent(team)}&token=${encodeURIComponent(token)}`);
+
+      ws.addEventListener("open", () => {
+        statusEl.textContent = "Connected. Waiting for your turn.";
+        setButtonsEnabled(false);
+      });
+
+      ws.addEventListener("message", event => {
+        let msg;
+        try {
+          msg = JSON.parse(event.data);
+        } catch {
+          return;
+        }
+
+        if (msg.type === "active-team") {
+          const isMyTurn = msg.team === team;
+          setButtonsEnabled(isMyTurn);
+          statusEl.textContent = isMyTurn ? "Your turn! Tap 1-4." : "Other team's turn.";
+        }
+      });
+
+      ws.addEventListener("close", () => {
+        setButtonsEnabled(false);
+        statusEl.textContent = "Disconnected from host.";
+      });
+
+      buttons.forEach(btn => {
+        btn.addEventListener("click", () => {
+          if (ws.readyState !== WebSocket.OPEN) {
+            return;
+          }
+          const value = Number(btn.dataset.value);
+          ws.send(JSON.stringify({ type: "pick", value }));
+        });
+      });
+    }
+  </script>
+</body>
+</html>

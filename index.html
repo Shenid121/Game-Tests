@@ -1,0 +1,1423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Jungle Sort Showdown</title>
+  <style>
+    :root {
+      --bg-top: #f6f7e8;
+      --bg-bottom: #d4efb4;
+      --panel: rgba(255, 255, 255, 0.88);
+      --ink: #1f2d17;
+      --accent: #2e7d32;
+      --accent-2: #bf6c00;
+      --team-a: #0f7a8a;
+      --team-b: #9b2f2f;
+      --ok: #2f9e44;
+      --bad: #e03131;
+      --shadow: 0 14px 28px rgba(23, 45, 11, 0.15);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+      color: var(--ink);
+      background: radial-gradient(circle at 15% 20%, #fff9cf 0%, transparent 35%),
+        radial-gradient(circle at 85% 80%, #cbf6d2 0%, transparent 35%),
+        linear-gradient(180deg, var(--bg-top), var(--bg-bottom));
+      display: grid;
+      place-items: center;
+      padding: 1rem;
+    }
+
+    .screen {
+      width: min(1000px, 100%);
+      background: var(--panel);
+      border-radius: 20px;
+      padding: 1rem 1rem 1.25rem;
+      box-shadow: var(--shadow);
+      border: 3px solid rgba(46, 125, 50, 0.16);
+      backdrop-filter: blur(2px);
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .title {
+      margin: 0;
+      text-align: center;
+      letter-spacing: 0.04em;
+      font-size: clamp(1.35rem, 2.4vw, 2rem);
+      color: var(--accent);
+    }
+
+    .subtitle {
+      text-align: center;
+      margin: 0.4rem 0 0.8rem;
+      opacity: 0.85;
+    }
+
+    .setup-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.8rem;
+      margin-top: 0.8rem;
+    }
+
+    .field {
+      background: #ffffff;
+      border: 2px solid rgba(0, 0, 0, 0.08);
+      border-radius: 12px;
+      padding: 0.7rem;
+    }
+
+    .field label {
+      display: block;
+      font-weight: 700;
+      margin-bottom: 0.35rem;
+      font-size: 0.95rem;
+    }
+
+    .field input {
+      width: 100%;
+      border: 2px solid rgba(0, 0, 0, 0.14);
+      border-radius: 8px;
+      padding: 0.55rem;
+      font-size: 1rem;
+    }
+
+    .check-row {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-weight: 700;
+      margin-top: 0.35rem;
+    }
+
+    .check-row input {
+      width: auto;
+      transform: scale(1.15);
+    }
+
+    .setup-actions {
+      margin-top: 0.9rem;
+      display: flex;
+      justify-content: center;
+      gap: 0.6rem;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      border: 0;
+      border-radius: 10px;
+      padding: 0.65rem 1rem;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .btn-secondary {
+      background: #efe6cf;
+      color: #4f3b10;
+    }
+
+    .btn-info {
+      background: #dbeffd;
+      color: #0d4e85;
+    }
+
+    .toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.6rem;
+      flex-wrap: wrap;
+    }
+
+    .toolbar-actions {
+      display: flex;
+      gap: 0.45rem;
+      flex-wrap: wrap;
+    }
+
+    .top-metrics {
+      display: flex;
+      gap: 0.7rem;
+      align-items: center;
+      font-weight: 700;
+      flex-wrap: wrap;
+    }
+
+    .pill {
+      background: #ffffff;
+      border: 2px solid rgba(0, 0, 0, 0.08);
+      border-radius: 999px;
+      padding: 0.35rem 0.7rem;
+      font-size: 0.95rem;
+    }
+
+    .category-wrap {
+      text-align: center;
+      margin-top: 0.5rem;
+    }
+
+    .category-label {
+      margin: 0.25rem 0;
+      font-size: 0.95rem;
+      opacity: 0.78;
+    }
+
+    .category {
+      margin: 0;
+      font-size: clamp(1.15rem, 2vw, 1.6rem);
+      color: var(--accent-2);
+      font-weight: 700;
+    }
+
+    .status {
+      text-align: center;
+      margin-top: 0.65rem;
+      font-weight: 700;
+      font-size: 1.05rem;
+    }
+
+    .turn-a {
+      color: var(--team-a);
+    }
+
+    .turn-b {
+      color: var(--team-b);
+    }
+
+    .teams {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.75rem;
+      margin-top: 1rem;
+    }
+
+    .team-card {
+      border-radius: 14px;
+      padding: 0.85rem;
+      background: #ffffff;
+      border: 2px solid rgba(0, 0, 0, 0.07);
+      transition: transform 180ms ease, border-color 180ms ease;
+    }
+
+    .team-card.active {
+      transform: translateY(-2px) scale(1.01);
+    }
+
+    .team-a.active {
+      border-color: color-mix(in srgb, var(--team-a), white 30%);
+      box-shadow: 0 8px 18px rgba(15, 122, 138, 0.2);
+    }
+
+    .team-b.active {
+      border-color: color-mix(in srgb, var(--team-b), white 30%);
+      box-shadow: 0 8px 18px rgba(155, 47, 47, 0.2);
+    }
+
+    .team-name {
+      margin: 0;
+      font-size: 1.1rem;
+    }
+
+    .team-a .team-name {
+      color: var(--team-a);
+    }
+
+    .team-b .team-name {
+      color: var(--team-b);
+    }
+
+    .players {
+      margin-top: 0.3rem;
+      font-size: 0.95rem;
+      opacity: 0.8;
+    }
+
+    .stats {
+      margin-top: 0.45rem;
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      font-size: 1rem;
+    }
+
+    .items {
+      margin-top: 1rem;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 0.7rem;
+    }
+
+    .item-btn {
+      border: 2px solid rgba(0, 0, 0, 0.12);
+      background: #fff;
+      color: var(--ink);
+      border-radius: 12px;
+      padding: 0.8rem 0.6rem;
+      font-size: clamp(1rem, 2.3vw, 1.15rem);
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease;
+      min-height: 62px;
+    }
+
+    .item-btn:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 16px rgba(0, 0, 0, 0.12);
+      border-color: rgba(0, 0, 0, 0.24);
+    }
+
+    .item-btn:disabled {
+      cursor: not-allowed;
+      opacity: 0.9;
+    }
+
+    .item-btn.correct {
+      animation: popOk 450ms ease;
+      border-color: var(--ok);
+      background: #eaf8ee;
+    }
+
+    .item-btn.wrong {
+      animation: popBad 450ms ease;
+      border-color: var(--bad);
+      background: #ffecec;
+    }
+
+    .meta {
+      margin-top: 0.9rem;
+      display: flex;
+      justify-content: space-between;
+      gap: 0.8rem;
+      flex-wrap: wrap;
+      font-size: 0.95rem;
+      opacity: 0.9;
+    }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.42);
+      display: grid;
+      place-items: center;
+      padding: 1rem;
+      z-index: 20;
+    }
+
+    .modal-backdrop.hidden {
+      display: none;
+    }
+
+    .modal {
+      width: min(640px, 100%);
+      background: #fff;
+      border-radius: 16px;
+      padding: 1rem;
+      box-shadow: 0 15px 35px rgba(0, 0, 0, 0.22);
+      border: 2px solid rgba(0, 0, 0, 0.09);
+    }
+
+    .modal h2 {
+      margin: 0 0 0.55rem;
+      color: var(--accent);
+    }
+
+    .modal p,
+    .modal li {
+      line-height: 1.42;
+    }
+
+    .modal ul {
+      margin: 0.25rem 0 0.8rem;
+      padding-left: 1.2rem;
+    }
+
+    .voice-live {
+      font-size: 0.9rem;
+      opacity: 0.86;
+      margin-top: 0.35rem;
+    }
+
+    .qr-panel {
+      margin-top: 0.85rem;
+      border: 2px dashed rgba(0, 0, 0, 0.15);
+      border-radius: 12px;
+      padding: 0.8rem;
+      background: #fcffef;
+    }
+
+    .qr-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.8rem;
+      margin-top: 0.6rem;
+    }
+
+    .qr-card {
+      background: #fff;
+      border-radius: 10px;
+      border: 2px solid rgba(0, 0, 0, 0.1);
+      padding: 0.55rem;
+      text-align: center;
+    }
+
+    .qr-card img {
+      width: min(220px, 100%);
+      height: auto;
+      border-radius: 8px;
+      border: 1px solid rgba(0, 0, 0, 0.1);
+    }
+
+    .qr-link {
+      font-size: 0.75rem;
+      word-break: break-all;
+      margin-top: 0.4rem;
+      opacity: 0.82;
+    }
+
+    @keyframes popOk {
+      0% { transform: scale(0.98); }
+      45% { transform: scale(1.04); }
+      100% { transform: scale(1); }
+    }
+
+    @keyframes popBad {
+      0% { transform: scale(1); }
+      35% { transform: scale(1.04); }
+      100% { transform: scale(1); }
+    }
+
+    @media (max-width: 740px) {
+      .setup-grid,
+      .items,
+      .teams {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main id="setupScreen" class="screen">
+    <h1 class="title">Jungle Sort Showdown</h1>
+    <p class="subtitle">Set up your teams and game timer, then start playing.</p>
+
+    <section class="setup-grid">
+      <div class="field">
+        <label for="teamANameInput">Team A Name</label>
+        <input id="teamANameInput" type="text" maxlength="24" value="Team A" />
+      </div>
+      <div class="field">
+        <label for="teamBNameInput">Team B Name</label>
+        <input id="teamBNameInput" type="text" maxlength="24" value="Team B" />
+      </div>
+      <div class="field">
+        <label for="teamAPlayersInput">Players in Team A</label>
+        <input id="teamAPlayersInput" type="number" min="1" max="20" value="3" />
+      </div>
+      <div class="field">
+        <label for="teamBPlayersInput">Players in Team B</label>
+        <input id="teamBPlayersInput" type="number" min="1" max="20" value="3" />
+      </div>
+      <div class="field">
+        <label for="timerInput">Turn Timer (seconds)</label>
+        <input id="timerInput" type="number" min="3" max="60" value="12" />
+      </div>
+      <div class="field">
+        <label>Hands-Free Mode</label>
+        <div class="check-row">
+          <input id="voiceEnabledInput" type="checkbox" checked />
+          <span>Enable voice commands</span>
+        </div>
+        <div class="check-row">
+          <input id="phonesEnabledInput" type="checkbox" />
+          <span>Enable phone controllers (2 phones)</span>
+        </div>
+      </div>
+      <div class="field">
+        <label for="publicBaseUrlInput">Public Host URL (for phones)</label>
+        <input id="publicBaseUrlInput" type="text" placeholder="http://192.168.1.50:3000 or https://your-app.onrender.com" />
+      </div>
+    </section>
+
+    <section id="qrPanel" class="qr-panel hidden">
+      <strong>Phone Controllers</strong>
+      <p style="margin:0.35rem 0 0; opacity:0.85;">Each team scans its own QR code. If phones cannot open localhost, set Public Host URL above.</p>
+      <div class="qr-grid">
+        <article class="qr-card">
+          <h3 id="qrATitle" style="margin:0 0 0.35rem;">Team A</h3>
+          <img id="qrAImg" alt="Team A QR code" />
+          <p id="qrALink" class="qr-link"></p>
+        </article>
+        <article class="qr-card">
+          <h3 id="qrBTitle" style="margin:0 0 0.35rem;">Team B</h3>
+          <img id="qrBImg" alt="Team B QR code" />
+          <p id="qrBLink" class="qr-link"></p>
+        </article>
+      </div>
+    </section>
+
+    <div class="setup-actions">
+      <button id="helpSetupBtn" class="btn btn-info" type="button">Help / Rules</button>
+      <button id="startGameBtn" class="btn btn-primary" type="button">Start Game</button>
+    </div>
+  </main>
+
+  <main id="gameScreen" class="screen hidden" aria-live="polite">
+    <div class="toolbar">
+      <h1 class="title">Jungle Sort Showdown</h1>
+      <div class="toolbar-actions">
+        <button id="helpGameBtn" class="btn btn-info" type="button">Help</button>
+        <button id="toggleVoiceBtn" class="btn btn-secondary" type="button">Voice: On</button>
+        <button id="restartBtn" class="btn btn-secondary" type="button">Restart</button>
+      </div>
+    </div>
+
+    <div class="top-metrics">
+      <span id="timerDisplay" class="pill">Time Left: 12s</span>
+      <span id="totalScoreDisplay" class="pill">Total: 0 - 0</span>
+      <span id="voiceStatus" class="pill">Voice: Ready</span>
+      <span id="phoneStatus" class="pill">Phones: Off</span>
+    </div>
+
+    <div class="category-wrap">
+      <p class="category-label">Current Category</p>
+      <p id="categoryName" class="category">-</p>
+    </div>
+
+    <p id="turnStatus" class="status">Team A's turn</p>
+
+    <section class="teams">
+      <article id="teamACard" class="team-card team-a active">
+        <h2 id="teamAName" class="team-name">Team A</h2>
+        <p id="teamAPlayers" class="players">Players: 3</p>
+        <div class="stats">
+          <span>Score: <strong id="scoreA">0</strong></span>
+          <span>Streak: <strong id="streakA">0</strong></span>
+        </div>
+      </article>
+
+      <article id="teamBCard" class="team-card team-b">
+        <h2 id="teamBName" class="team-name">Team B</h2>
+        <p id="teamBPlayers" class="players">Players: 3</p>
+        <div class="stats">
+          <span>Score: <strong id="scoreB">0</strong></span>
+          <span>Streak: <strong id="streakB">0</strong></span>
+        </div>
+      </article>
+    </section>
+
+    <section id="itemsContainer" class="items" aria-label="Items to pick"></section>
+
+    <div class="meta">
+      <span id="pickCounter">Pick 1 of 8 in this category</span>
+      <span id="hint">Pick items that match the shown category.</span>
+    </div>
+    <p id="voiceHeard" class="voice-live">Heard: -</p>
+  </main>
+
+  <div id="helpModalBackdrop" class="modal-backdrop hidden">
+    <section class="modal" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
+      <h2 id="helpTitle">How To Play</h2>
+      <p>Teams alternate turns to pick items that match the shown category.</p>
+      <ul>
+        <li>Correct pick: +1 point and streak +1.</li>
+        <li>Wrong pick: no point and streak resets to 0.</li>
+        <li>Streak bonus: streak 3+ gives +2 points, streak 5+ gives +3 points.</li>
+        <li>If timer runs out, that team loses streak and turn switches.</li>
+        <li>After several picks, category switches automatically.</li>
+      </ul>
+      <p>Voice mode tips: say the visible item name like "lion" or "moss", or say the item number like "one", "two", "three", or "four". You can also say "help", "stop listening", and "start listening".</p>
+      <button id="closeHelpBtn" class="btn btn-primary" type="button">Close</button>
+    </section>
+  </div>
+
+  <script>
+    const categories = {
+      predators: [
+        "Lion 🦁", "Tiger 🐅", "Crocodile 🐊", "Leopard 🐆", "Wolf 🐺",
+        "Hyena 🐾", "Jaguar 🐆", "Eagle 🦅", "Hawk 🦅", "Cheetah 🐆", "Python 🐍", "Komodo Dragon 🦎",
+        "Polar Bear 🐻", "Orca 🐋", "Falcon 🦅", "Panther 🐆", "Fox 🦊", "Lynx 🐈", "Alligator 🐊", "Piranha 🐟"
+      ],
+      fruits: [
+        "Apple 🍎", "Banana 🍌", "Mango 🥭", "Orange 🍊", "Grapes 🍇",
+        "Pineapple 🍍", "Watermelon 🍉", "Strawberry 🍓", "Blueberry 🫐", "Papaya 🥭", "Pear 🍐",
+        "Peach 🍑", "Kiwi 🥝", "Lemon 🍋", "Coconut 🥥", "Guava 🍈", "Cherry 🍒", "Plum 🟣", "Pomegranate 🔴", "Dragon Fruit 🐉"
+      ],
+      water_animals: [
+        "Fish 🐟", "Shark 🦈", "Dolphin 🐬", "Octopus 🐙", "Whale 🐋",
+        "Jellyfish 🎐", "Crab 🦀", "Lobster 🦞", "Seahorse 🐠", "Stingray 🐟", "Seal 🦭", "Walrus 🦭",
+        "Otter 🦦", "Squid 🦑", "Starfish ⭐", "Clownfish 🐠", "Turtle 🐢", "Manta Ray 🐟", "Swordfish 🐟", "Manatee 🦭"
+      ],
+      jungle_plants: [
+        "Fern 🌿", "Palm 🌴", "Vine 🍃", "Bamboo 🎋", "Moss 🪴",
+        "Orchid 🌸", "Liana 🌿", "Heliconia 🌺", "Banana Plant 🍌", "Rainforest Tree 🌳", "Mangrove 🌱",
+        "Bromeliad 🪴", "Cactus 🌵", "Aloe Vera 🌱", "Lotus 🪷", "Neem Tree 🌳", "Rubber Tree 🌳", "Cacao Tree 🌳", "Ginger 🫚", "Taro 🌱"
+      ]
+    };
+
+    const state = {
+      currentCategoryKey: "",
+      currentItems: [],
+      teamTurn: "A",
+      teams: {
+        A: { name: "Team A", players: 3, score: 0, streak: 0 },
+        B: { name: "Team B", players: 3, score: 0, streak: 0 }
+      },
+      turnSeconds: 12,
+      timeLeft: 12,
+      timerId: null,
+      picksPerCategory: randomInt(6, 10),
+      picksInCategory: 0,
+      isLocked: false,
+      gameStarted: false,
+      voiceEnabled: true,
+      voiceSupported: false,
+      voiceWanted: false,
+      recognition: null,
+      phonesEnabled: false,
+      remote: {
+        sessionId: "",
+        hostKey: "",
+        ws: null,
+        connectedA: 0,
+        connectedB: 0
+      }
+    };
+
+    const els = {
+      setupScreen: document.getElementById("setupScreen"),
+      gameScreen: document.getElementById("gameScreen"),
+      teamANameInput: document.getElementById("teamANameInput"),
+      teamBNameInput: document.getElementById("teamBNameInput"),
+      teamAPlayersInput: document.getElementById("teamAPlayersInput"),
+      teamBPlayersInput: document.getElementById("teamBPlayersInput"),
+      timerInput: document.getElementById("timerInput"),
+      publicBaseUrlInput: document.getElementById("publicBaseUrlInput"),
+      voiceEnabledInput: document.getElementById("voiceEnabledInput"),
+      phonesEnabledInput: document.getElementById("phonesEnabledInput"),
+      helpSetupBtn: document.getElementById("helpSetupBtn"),
+      startGameBtn: document.getElementById("startGameBtn"),
+      restartBtn: document.getElementById("restartBtn"),
+      helpGameBtn: document.getElementById("helpGameBtn"),
+      toggleVoiceBtn: document.getElementById("toggleVoiceBtn"),
+      categoryName: document.getElementById("categoryName"),
+      turnStatus: document.getElementById("turnStatus"),
+      teamAName: document.getElementById("teamAName"),
+      teamBName: document.getElementById("teamBName"),
+      teamAPlayers: document.getElementById("teamAPlayers"),
+      teamBPlayers: document.getElementById("teamBPlayers"),
+      scoreA: document.getElementById("scoreA"),
+      scoreB: document.getElementById("scoreB"),
+      streakA: document.getElementById("streakA"),
+      streakB: document.getElementById("streakB"),
+      teamACard: document.getElementById("teamACard"),
+      teamBCard: document.getElementById("teamBCard"),
+      itemsContainer: document.getElementById("itemsContainer"),
+      pickCounter: document.getElementById("pickCounter"),
+      hint: document.getElementById("hint"),
+      timerDisplay: document.getElementById("timerDisplay"),
+      totalScoreDisplay: document.getElementById("totalScoreDisplay"),
+      voiceStatus: document.getElementById("voiceStatus"),
+      phoneStatus: document.getElementById("phoneStatus"),
+      voiceHeard: document.getElementById("voiceHeard"),
+      qrPanel: document.getElementById("qrPanel"),
+      qrAImg: document.getElementById("qrAImg"),
+      qrBImg: document.getElementById("qrBImg"),
+      qrALink: document.getElementById("qrALink"),
+      qrBLink: document.getElementById("qrBLink"),
+      qrATitle: document.getElementById("qrATitle"),
+      qrBTitle: document.getElementById("qrBTitle"),
+      helpModalBackdrop: document.getElementById("helpModalBackdrop"),
+      closeHelpBtn: document.getElementById("closeHelpBtn")
+    };
+
+    initVoiceSupport();
+
+    els.startGameBtn.addEventListener("click", startGameFromSetup);
+    els.restartBtn.addEventListener("click", restartToSetup);
+    els.phonesEnabledInput.addEventListener("change", onPhonesToggleChange);
+    els.publicBaseUrlInput.addEventListener("change", onPublicBaseUrlChange);
+    els.publicBaseUrlInput.addEventListener("blur", onPublicBaseUrlBlur);
+    els.helpSetupBtn.addEventListener("click", openHelpModal);
+    els.helpGameBtn.addEventListener("click", openHelpModal);
+    els.closeHelpBtn.addEventListener("click", closeHelpModal);
+    els.helpModalBackdrop.addEventListener("click", event => {
+      if (event.target === els.helpModalBackdrop) {
+        closeHelpModal();
+      }
+    });
+    els.toggleVoiceBtn.addEventListener("click", toggleVoiceMode);
+
+    function initVoiceSupport() {
+      const SpeechRecognitionClass = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognitionClass) {
+        state.voiceSupported = false;
+        state.voiceEnabled = false;
+        els.voiceEnabledInput.checked = false;
+        els.voiceEnabledInput.disabled = true;
+        els.voiceStatus.textContent = "Voice: Not supported in this browser";
+        els.toggleVoiceBtn.disabled = true;
+        els.toggleVoiceBtn.textContent = "Voice: Unsupported";
+        return;
+      }
+
+      state.voiceSupported = true;
+      const recognition = new SpeechRecognitionClass();
+      recognition.lang = "en-US";
+      recognition.continuous = true;
+      recognition.interimResults = false;
+
+      recognition.onresult = event => {
+        const transcript = event.results[event.results.length - 1][0].transcript.trim();
+        els.voiceHeard.textContent = `Heard: ${transcript}`;
+        processVoiceCommand(transcript);
+      };
+
+      recognition.onerror = () => {
+        els.voiceStatus.textContent = "Voice: Mic error";
+      };
+
+      recognition.onend = () => {
+        if (state.voiceWanted && state.gameStarted) {
+          setTimeout(() => {
+            startVoiceRecognition();
+          }, 180);
+        }
+      };
+
+      state.recognition = recognition;
+      updateVoiceUI();
+    }
+
+    async function startGameFromSetup() {
+      state.teams.A.name = safeTeamName(els.teamANameInput.value, "Team A");
+      state.teams.B.name = safeTeamName(els.teamBNameInput.value, "Team B");
+      state.teams.A.players = safePlayerCount(els.teamAPlayersInput.value);
+      state.teams.B.players = safePlayerCount(els.teamBPlayersInput.value);
+      state.turnSeconds = safeTimerSeconds(els.timerInput.value);
+      state.voiceEnabled = state.voiceSupported && els.voiceEnabledInput.checked;
+      state.phonesEnabled = els.phonesEnabledInput.checked;
+
+      resetGameStats();
+      state.gameStarted = true;
+
+      els.setupScreen.classList.add("hidden");
+      els.gameScreen.classList.remove("hidden");
+
+      applyTeamLabels();
+      chooseNewCategory();
+      renderScores();
+      renderTurn();
+      renderItems();
+      startTurnTimer();
+      configureVoiceMode(state.voiceEnabled);
+
+      if (state.phonesEnabled) {
+        await setupPhoneControllers();
+        if (state.phonesEnabled && state.remote.sessionId) {
+          connectHostSocket();
+        }
+      } else {
+        stopPhoneControllers();
+      }
+
+      playSound("start");
+    }
+
+    function restartToSetup() {
+      stopTurnTimer();
+      stopVoiceRecognition();
+      stopPhoneControllers();
+      state.gameStarted = false;
+      state.isLocked = false;
+      els.gameScreen.classList.add("hidden");
+      els.setupScreen.classList.remove("hidden");
+      closeHelpModal();
+    }
+
+    function openHelpModal() {
+      els.helpModalBackdrop.classList.remove("hidden");
+    }
+
+    function closeHelpModal() {
+      els.helpModalBackdrop.classList.add("hidden");
+    }
+
+    function toggleVoiceMode() {
+      configureVoiceMode(!state.voiceWanted);
+    }
+
+    async function onPhonesToggleChange() {
+      const enabled = els.phonesEnabledInput.checked;
+      state.phonesEnabled = enabled;
+      if (enabled) {
+        await setupPhoneControllers();
+      } else {
+        stopPhoneControllers();
+      }
+    }
+
+    async function onPublicBaseUrlChange() {
+      if (!els.phonesEnabledInput.checked) {
+        return;
+      }
+      await setupPhoneControllers();
+    }
+
+    function onPublicBaseUrlBlur() {
+      const normalized = normalizePublicBaseUrlInput(els.publicBaseUrlInput.value);
+      els.publicBaseUrlInput.value = normalized;
+    }
+
+    function configureVoiceMode(enable) {
+      if (!state.voiceSupported) {
+        return;
+      }
+
+      state.voiceWanted = Boolean(enable);
+      if (state.voiceWanted && state.gameStarted) {
+        startVoiceRecognition();
+      } else {
+        stopVoiceRecognition();
+      }
+      updateVoiceUI();
+    }
+
+    function startVoiceRecognition() {
+      if (!state.recognition || !state.voiceSupported) {
+        return;
+      }
+
+      try {
+        state.recognition.start();
+        els.voiceStatus.textContent = "Voice: Listening";
+      } catch (error) {
+        // Ignore duplicate-start errors.
+      }
+    }
+
+    function stopVoiceRecognition() {
+      if (!state.recognition || !state.voiceSupported) {
+        return;
+      }
+
+      state.voiceWanted = false;
+      try {
+        state.recognition.stop();
+      } catch (error) {
+        // Ignore duplicate-stop errors.
+      }
+      els.voiceStatus.textContent = "Voice: Off";
+      updateVoiceUI();
+    }
+
+    function updateVoiceUI() {
+      if (!state.voiceSupported) {
+        els.toggleVoiceBtn.disabled = true;
+        return;
+      }
+
+      if (state.voiceWanted) {
+        els.toggleVoiceBtn.textContent = "Voice: On";
+        els.voiceStatus.textContent = "Voice: Listening";
+      } else {
+        els.toggleVoiceBtn.textContent = "Voice: Off";
+        if (state.gameStarted) {
+          els.voiceStatus.textContent = "Voice: Off";
+        } else {
+          els.voiceStatus.textContent = "Voice: Ready";
+        }
+      }
+    }
+
+    function processVoiceCommand(rawTranscript) {
+      const transcript = normalizeSpeechText(rawTranscript);
+
+      if (!transcript) {
+        return;
+      }
+
+      if (transcript.includes("help")) {
+        openHelpModal();
+        return;
+      }
+
+      if (transcript.includes("stop listening")) {
+        configureVoiceMode(false);
+        return;
+      }
+
+      if (transcript.includes("start listening")) {
+        configureVoiceMode(true);
+        return;
+      }
+
+      if (!state.gameStarted || state.isLocked) {
+        return;
+      }
+
+      const spokenNumber = getSpokenItemNumber(transcript);
+      if (spokenNumber >= 1 && spokenNumber <= state.currentItems.length) {
+        selectItemByIndex(spokenNumber - 1);
+        return;
+      }
+
+      for (let i = 0; i < state.currentItems.length; i += 1) {
+        const itemAliases = getItemAliases(state.currentItems[i].text);
+        const isMatch = itemAliases.some(alias => transcript.includes(alias));
+        if (isMatch) {
+          selectItemByIndex(i);
+          return;
+        }
+      }
+
+      els.hint.textContent = "Voice did not match. Say an item name (like moss) or a number (like four).";
+    }
+
+    function getSpokenItemNumber(transcript) {
+      const map = {
+        "1": 1,
+        "one": 1,
+        "first": 1,
+        "2": 2,
+        "two": 2,
+        "second": 2,
+        "3": 3,
+        "three": 3,
+        "third": 3,
+        "4": 4,
+        "four": 4,
+        "fourth": 4
+      };
+
+      const parts = transcript.split(" ");
+      for (const part of parts) {
+        if (Object.prototype.hasOwnProperty.call(map, part)) {
+          return map[part];
+        }
+      }
+      return 0;
+    }
+
+    function getItemAliases(itemText) {
+      const normalized = normalizeSpeechText(itemText);
+      const firstWord = normalized.split(" ").filter(Boolean)[0] || "";
+      return [normalized, firstWord].filter(Boolean);
+    }
+
+    function normalizeSpeechText(text) {
+      return String(text || "")
+        .toLowerCase()
+        .replace(/[^a-z0-9\s]/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+    }
+
+    function resetGameStats() {
+      state.teamTurn = "A";
+      state.teams.A.score = 0;
+      state.teams.B.score = 0;
+      state.teams.A.streak = 0;
+      state.teams.B.streak = 0;
+      state.picksPerCategory = randomInt(6, 10);
+      state.picksInCategory = 0;
+      state.timeLeft = state.turnSeconds;
+      els.voiceHeard.textContent = "Heard: -";
+    }
+
+    function applyTeamLabels() {
+      els.teamAName.textContent = state.teams.A.name;
+      els.teamBName.textContent = state.teams.B.name;
+      els.teamAPlayers.textContent = `Players: ${state.teams.A.players}`;
+      els.teamBPlayers.textContent = `Players: ${state.teams.B.players}`;
+    }
+
+    function chooseNewCategory() {
+      const keys = Object.keys(categories);
+      const randomKey = keys[Math.floor(Math.random() * keys.length)];
+      state.currentCategoryKey = randomKey;
+      state.currentItems = generateRoundItems(randomKey);
+      state.picksInCategory = 0;
+      state.picksPerCategory = randomInt(6, 10);
+
+      const displayName = randomKey.replaceAll("_", " ").replace(/\b\w/g, c => c.toUpperCase());
+      els.categoryName.textContent = displayName;
+      els.hint.textContent = "Pick items that match the shown category.";
+      updatePickCounter();
+    }
+
+    function generateRoundItems(categoryKey) {
+      const correctPool = [...categories[categoryKey]];
+      const otherKeys = Object.keys(categories).filter(key => key !== categoryKey);
+      const distractorPool = otherKeys.flatMap(key => categories[key]);
+
+      const totalItems = 4;
+      const minCorrect = 1;
+      const maxCorrect = Math.min(3, totalItems - 1);
+      const correctCount = randomInt(minCorrect, maxCorrect);
+      const distractorCount = totalItems - correctCount;
+
+      const selectedCorrect = sampleUnique(correctPool, correctCount);
+      const selectedDistractors = sampleUnique(distractorPool, distractorCount);
+
+      return shuffle([
+        ...selectedCorrect.map(text => ({ text, isCorrect: true })),
+        ...selectedDistractors.map(text => ({ text, isCorrect: false }))
+      ]);
+    }
+
+    function renderItems() {
+      els.itemsContainer.innerHTML = "";
+
+      state.currentItems.forEach((item, index) => {
+        const button = document.createElement("button");
+        button.className = "item-btn";
+        button.type = "button";
+        button.textContent = `${index + 1}. ${item.text}`;
+        button.setAttribute("data-index", String(index));
+        button.addEventListener("click", onItemClick);
+        els.itemsContainer.appendChild(button);
+      });
+    }
+
+    function selectItemByIndex(index) {
+      const button = els.itemsContainer.querySelector(`.item-btn[data-index="${index}"]`);
+      if (!button) {
+        return;
+      }
+      handleItemSelection(button, index);
+    }
+
+    function onItemClick(event) {
+      const button = event.currentTarget;
+      const index = Number(button.getAttribute("data-index"));
+      handleItemSelection(button, index);
+    }
+
+    function handleItemSelection(button, index) {
+      if (!state.gameStarted || state.isLocked) {
+        return;
+      }
+
+      const item = state.currentItems[index];
+      if (!item) {
+        return;
+      }
+
+      state.isLocked = true;
+      disableAllItems();
+      stopTurnTimer();
+
+      const team = state.teamTurn;
+      const teamStats = state.teams[team];
+
+      if (item.isCorrect) {
+        let points = 1;
+        teamStats.streak += 1;
+
+        // Optional streak bonuses for exciting runs.
+        if (teamStats.streak >= 5) {
+          points += 3;
+          els.hint.textContent = `${teamStats.name} got a +3 streak bonus!`;
+        } else if (teamStats.streak >= 3) {
+          points += 2;
+          els.hint.textContent = `${teamStats.name} got a +2 streak bonus!`;
+        } else {
+          els.hint.textContent = `Great pick by ${teamStats.name}!`;
+        }
+
+        teamStats.score += points;
+        button.classList.add("correct");
+        playSound("correct");
+      } else {
+        teamStats.streak = 0;
+        button.classList.add("wrong");
+        els.hint.textContent = `Oops! ${teamStats.name} picked a distractor.`;
+        playSound("wrong");
+      }
+
+      renderScores();
+      state.picksInCategory += 1;
+      updatePickCounter();
+
+      window.setTimeout(() => {
+        moveToNextTurn();
+        state.isLocked = false;
+      }, 380);
+    }
+
+    function moveToNextTurn() {
+      const previousTeam = state.teamTurn;
+      state.teamTurn = previousTeam === "A" ? "B" : "A";
+
+      const shouldSwitchCategory = state.picksInCategory >= state.picksPerCategory;
+      if (shouldSwitchCategory) {
+        chooseNewCategory();
+      }
+
+      state.currentItems = generateRoundItems(state.currentCategoryKey);
+      renderItems();
+      renderTurn();
+      startTurnTimer();
+      playSound("switch");
+    }
+
+    function disableAllItems() {
+      const buttons = els.itemsContainer.querySelectorAll(".item-btn");
+      buttons.forEach(btn => {
+        btn.disabled = true;
+      });
+    }
+
+    function renderScores() {
+      els.scoreA.textContent = String(state.teams.A.score);
+      els.scoreB.textContent = String(state.teams.B.score);
+      els.streakA.textContent = String(state.teams.A.streak);
+      els.streakB.textContent = String(state.teams.B.streak);
+      els.totalScoreDisplay.textContent = `${state.teams.A.name}: ${state.teams.A.score} | ${state.teams.B.name}: ${state.teams.B.score}`;
+    }
+
+    function renderTurn() {
+      const current = state.teamTurn;
+      const other = current === "A" ? "B" : "A";
+      const currentTeam = state.teams[current];
+
+      els.turnStatus.textContent = `${currentTeam.name}'s turn`;
+      els.turnStatus.className = `status ${current === "A" ? "turn-a" : "turn-b"}`;
+
+      const activeCard = current === "A" ? els.teamACard : els.teamBCard;
+      const inactiveCard = other === "A" ? els.teamACard : els.teamBCard;
+
+      activeCard.classList.add("active");
+      inactiveCard.classList.remove("active");
+
+      sendActiveTeamToPhones(current);
+    }
+
+    async function setupPhoneControllers() {
+      if (!(window.location.protocol === "http:" || window.location.protocol === "https:")) {
+        els.phoneStatus.textContent = "Phones: unavailable on file://";
+        state.phonesEnabled = false;
+        els.phonesEnabledInput.checked = false;
+        return;
+      }
+
+      if (state.remote.ws) {
+        try {
+          state.remote.ws.close();
+        } catch (error) {
+          // Ignore close errors.
+        }
+        state.remote.ws = null;
+      }
+
+      state.remote.sessionId = "";
+      state.remote.hostKey = "";
+      state.remote.connectedA = 0;
+      state.remote.connectedB = 0;
+
+      const teamANamePreview = safeTeamName(els.teamANameInput.value, state.teams.A.name || "Team A");
+      const teamBNamePreview = safeTeamName(els.teamBNameInput.value, state.teams.B.name || "Team B");
+      const normalizedPublicBaseUrl = normalizePublicBaseUrlInput(els.publicBaseUrlInput.value);
+      els.publicBaseUrlInput.value = normalizedPublicBaseUrl;
+
+      try {
+        const response = await fetch("/api/session", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            teamAName: teamANamePreview,
+            teamBName: teamBNamePreview,
+            publicBaseUrl: normalizedPublicBaseUrl
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error("Session creation failed");
+        }
+
+        const data = await response.json();
+        state.remote.sessionId = data.sessionId;
+        state.remote.hostKey = data.hostKey;
+
+        els.qrATitle.textContent = teamANamePreview;
+        els.qrBTitle.textContent = teamBNamePreview;
+        els.qrAImg.src = data.qrADataUrl;
+        els.qrBImg.src = data.qrBDataUrl;
+        els.qrALink.textContent = data.urlA;
+        els.qrBLink.textContent = data.urlB;
+        els.qrPanel.classList.remove("hidden");
+
+        updatePhoneStatus("Phones: QR ready");
+      } catch (error) {
+        els.phoneStatus.textContent = "Phones: setup failed";
+        state.phonesEnabled = false;
+        els.phonesEnabledInput.checked = false;
+        els.qrPanel.classList.add("hidden");
+      }
+    }
+
+    function connectHostSocket() {
+      if (!state.remote.sessionId || !state.remote.hostKey) {
+        return;
+      }
+
+      if (state.remote.ws && state.remote.ws.readyState === WebSocket.OPEN) {
+        sendActiveTeamToPhones(state.teamTurn);
+        return;
+      }
+
+      const wsProto = window.location.protocol === "https:" ? "wss" : "ws";
+      const wsUrl = `${wsProto}://${window.location.host}/ws?role=host&session=${encodeURIComponent(state.remote.sessionId)}&hostKey=${encodeURIComponent(state.remote.hostKey)}`;
+      const ws = new WebSocket(wsUrl);
+      state.remote.ws = ws;
+
+      ws.addEventListener("open", () => {
+        updatePhoneStatus();
+        sendActiveTeamToPhones(state.teamTurn);
+      });
+
+      ws.addEventListener("message", event => {
+        let msg;
+        try {
+          msg = JSON.parse(event.data);
+        } catch {
+          return;
+        }
+
+        if (msg.type === "phone-pick") {
+          handlePhonePick(msg.team, msg.value);
+          return;
+        }
+
+        if (msg.type === "presence") {
+          state.remote.connectedA = Number(msg.connectedA || 0);
+          state.remote.connectedB = Number(msg.connectedB || 0);
+          updatePhoneStatus();
+        }
+      });
+
+      ws.addEventListener("close", () => {
+        updatePhoneStatus("Phones: disconnected");
+      });
+    }
+
+    function handlePhonePick(team, value) {
+      if (!state.gameStarted || state.isLocked) {
+        return;
+      }
+
+      const safeTeam = team === "A" ? "A" : "B";
+      const safeValue = Number(value);
+
+      if (!Number.isInteger(safeValue) || safeValue < 1 || safeValue > 4) {
+        return;
+      }
+
+      if (safeTeam !== state.teamTurn) {
+        els.hint.textContent = `${state.teams[safeTeam].name} pressed out of turn.`;
+        return;
+      }
+
+      selectItemByIndex(safeValue - 1);
+    }
+
+    function sendActiveTeamToPhones(team) {
+      if (!state.remote.ws || state.remote.ws.readyState !== WebSocket.OPEN) {
+        return;
+      }
+      state.remote.ws.send(JSON.stringify({ type: "active-team", team }));
+    }
+
+    function stopPhoneControllers() {
+      if (state.remote.ws) {
+        try {
+          state.remote.ws.close();
+        } catch (error) {
+          // Ignore close errors.
+        }
+      }
+
+      state.remote.ws = null;
+      state.remote.sessionId = "";
+      state.remote.hostKey = "";
+      state.remote.connectedA = 0;
+      state.remote.connectedB = 0;
+      els.qrPanel.classList.add("hidden");
+      els.qrAImg.src = "";
+      els.qrBImg.src = "";
+      els.qrALink.textContent = "";
+      els.qrBLink.textContent = "";
+      updatePhoneStatus("Phones: Off");
+    }
+
+    function updatePhoneStatus(overrideText) {
+      if (overrideText) {
+        els.phoneStatus.textContent = overrideText;
+        return;
+      }
+
+      if (!state.phonesEnabled) {
+        els.phoneStatus.textContent = "Phones: Off";
+        return;
+      }
+
+      const base = state.remote.ws && state.remote.ws.readyState === WebSocket.OPEN ? "Phones: On" : "Phones: Connecting";
+      els.phoneStatus.textContent = `${base} (A:${state.remote.connectedA} B:${state.remote.connectedB})`;
+    }
+
+    function updatePickCounter() {
+      const currentPick = Math.min(state.picksInCategory + 1, state.picksPerCategory);
+      els.pickCounter.textContent = `Pick ${currentPick} of ${state.picksPerCategory} in this category`;
+    }
+
+    function startTurnTimer() {
+      stopTurnTimer();
+      state.timeLeft = state.turnSeconds;
+      renderTimer();
+
+      state.timerId = window.setInterval(() => {
+        state.timeLeft -= 1;
+        renderTimer();
+
+        if (state.timeLeft <= 0) {
+          onTurnTimeout();
+        }
+      }, 1000);
+    }
+
+    function stopTurnTimer() {
+      if (state.timerId) {
+        window.clearInterval(state.timerId);
+        state.timerId = null;
+      }
+    }
+
+    function onTurnTimeout() {
+      if (state.isLocked) {
+        return;
+      }
+
+      stopTurnTimer();
+      const team = state.teamTurn;
+      state.teams[team].streak = 0;
+      els.hint.textContent = `${state.teams[team].name} ran out of time. Turn switched.`;
+      renderScores();
+      playSound("timeout");
+      moveToNextTurn();
+    }
+
+    function renderTimer() {
+      els.timerDisplay.textContent = `Time Left: ${Math.max(0, state.timeLeft)}s`;
+    }
+
+    function sampleUnique(arr, count) {
+      const copy = [...arr];
+      shuffle(copy);
+      return copy.slice(0, Math.min(count, copy.length));
+    }
+
+    function shuffle(arr) {
+      for (let i = arr.length - 1; i > 0; i -= 1) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
+    }
+
+    function randomInt(min, max) {
+      return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
+
+    function normalizePublicBaseUrlInput(value) {
+      const raw = String(value || "").trim();
+      if (!raw) {
+        return "";
+      }
+      if (/^https?:\/\//i.test(raw)) {
+        return raw;
+      }
+      return `http://${raw}`;
+    }
+
+    function safeTeamName(value, fallback) {
+      const cleaned = String(value || "").trim();
+      return cleaned || fallback;
+    }
+
+    function safePlayerCount(value) {
+      const num = Number(value);
+      if (!Number.isFinite(num)) {
+        return 1;
+      }
+      return Math.min(20, Math.max(1, Math.floor(num)));
+    }
+
+    function safeTimerSeconds(value) {
+      const num = Number(value);
+      if (!Number.isFinite(num)) {
+        return 12;
+      }
+      return Math.min(60, Math.max(3, Math.floor(num)));
+    }
+
+    function playSound(type) {
+      try {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContextClass) {
+          return;
+        }
+
+        if (!playSound.ctx) {
+          playSound.ctx = new AudioContextClass();
+        }
+
+        const ctx = playSound.ctx;
+        const now = ctx.currentTime;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+
+        osc.type = "sine";
+        if (type === "correct") {
+          osc.frequency.setValueAtTime(620, now);
+        } else if (type === "wrong") {
+          osc.frequency.setValueAtTime(230, now);
+        } else if (type === "timeout") {
+          osc.frequency.setValueAtTime(180, now);
+        } else if (type === "switch") {
+          osc.frequency.setValueAtTime(420, now);
+        } else {
+          osc.frequency.setValueAtTime(500, now);
+        }
+
+        gain.gain.setValueAtTime(0.0001, now);
+        gain.gain.exponentialRampToValueAtTime(0.09, now + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.17);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.18);
+      } catch (error) {
+        // Ignore audio errors so gameplay remains unaffected.
+      }
+    }
+  </script>
+</body>
+</html>
