@@ -82,6 +82,7 @@ app.post("/api/session", async (req, res) => {
     sessions.set(sessionId, {
       createdAt: Date.now(),
       hostKey,
+      activeTeam: null,
       tokens: { A: tokenA, B: tokenB },
       hostSocket: null,
       phoneSockets: { A: new Set(), B: new Set() }
