@@ -137,6 +137,10 @@ wss.on("connection", (ws, req) => {
     session.phoneSockets[team].add(ws);
     sendJson(ws, { type: "phone-ready", team });
 
+    if (session.activeTeam === "A" || session.activeTeam === "B") {
+      sendJson(ws, { type: "active-team", team: session.activeTeam });
+    }
+
     if (session.hostSocket) {
       sendJson(session.hostSocket, {
         type: "presence",
@@ -160,6 +164,7 @@ wss.on("connection", (ws, req) => {
     if (ws._role === "host") {
       if (msg?.type === "active-team") {
         const team = msg.team === "A" ? "A" : "B";
+        session.activeTeam = team;
         for (const phoneWs of session.phoneSockets.A) {
           sendJson(phoneWs, { type: "active-team", team });
         }
