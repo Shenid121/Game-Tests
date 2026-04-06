@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: jungle-sort-showdown
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: 18
