@@ -138,9 +138,16 @@
         }
 
         if (msg.type === "active-team") {
-          const isMyTurn = msg.team === team;
+          const activeTeam = String(msg.team || "").toUpperCase();
+          const isMyTurn = activeTeam === team || activeTeam === "BOTH";
           setButtonsEnabled(isMyTurn);
-          statusEl.textContent = isMyTurn ? "Your turn! Tap 1-4." : "Other team's turn.";
+          if (activeTeam === "BOTH") {
+            statusEl.textContent = "Speedrun live! Tap 1-4 fast.";
+          } else if (activeTeam === "NONE") {
+            statusEl.textContent = "Round complete. Wait for restart.";
+          } else {
+            statusEl.textContent = isMyTurn ? "Your turn! Tap 1-4." : "Other team's turn.";
+          }
         }
       });
 

@@ -163,7 +163,10 @@ wss.on("connection", (ws, req) => {
 
     if (ws._role === "host") {
       if (msg?.type === "active-team") {
-        const team = msg.team === "A" ? "A" : "B";
+        const requested = String(msg.team || "").toUpperCase();
+        const team = requested === "A" || requested === "B" || requested === "BOTH" || requested === "NONE"
+          ? requested
+          : "A";
         session.activeTeam = team;
         for (const phoneWs of session.phoneSockets.A) {
           sendJson(phoneWs, { type: "active-team", team });

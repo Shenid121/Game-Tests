@@ -260,7 +260,7 @@
     .items {
       margin-top: 1rem;
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 0.7rem;
     }
 
@@ -269,12 +269,27 @@
       background: #fff;
       color: var(--ink);
       border-radius: 12px;
-      padding: 0.8rem 0.6rem;
-      font-size: clamp(1rem, 2.3vw, 1.15rem);
+      padding: 0.75rem 0.6rem;
+      font-size: clamp(1rem, 2vw, 1.1rem);
       font-weight: 600;
       cursor: pointer;
       transition: transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease;
-      min-height: 62px;
+      min-height: 130px;
+      display: grid;
+      justify-items: center;
+      align-content: center;
+      gap: 0.2rem;
+    }
+
+    .item-emoji {
+      font-size: clamp(2.6rem, 5vw, 3.4rem);
+      line-height: 1;
+    }
+
+    .item-label {
+      font-size: clamp(0.95rem, 1.8vw, 1.05rem);
+      text-align: center;
+      font-weight: 700;
     }
 
     .item-btn:hover:not(:disabled) {
@@ -367,6 +382,23 @@
       padding: 1rem;
       box-shadow: 0 15px 35px rgba(0, 0, 0, 0.22);
       border: 2px solid rgba(0, 0, 0, 0.09);
+    }
+
+    .scanner-video {
+      width: 100%;
+      border-radius: 10px;
+      background: #000;
+      min-height: 200px;
+      max-height: 340px;
+      object-fit: cover;
+      margin-top: 0.5rem;
+    }
+
+    .scanner-status {
+      margin-top: 0.6rem;
+      font-size: 0.95rem;
+      opacity: 0.9;
+      min-height: 1.2rem;
     }
 
     .modal h2 {
@@ -475,6 +507,13 @@
         <input id="timerInput" type="number" min="3" max="60" value="12" />
       </div>
       <div class="field">
+        <label for="gameModeInput">Mode</label>
+        <select id="gameModeInput" style="width:100%; border:2px solid rgba(0,0,0,0.14); border-radius:8px; padding:0.55rem; font-size:1rem;">
+          <option value="classic">Classic (alternating turns)</option>
+          <option value="speedrun">Speedrun (both teams at once, 60s)</option>
+        </select>
+      </div>
+      <div class="field">
         <label>Hands-Free Mode</label>
         <div class="check-row">
           <input id="voiceEnabledInput" type="checkbox" checked />
@@ -520,6 +559,7 @@
       <div class="toolbar-actions">
         <button id="helpGameBtn" class="btn btn-info" type="button">Help</button>
         <button id="reconnectPhonesBtn" class="btn btn-info" type="button">Reconnect Phones</button>
+        <button id="scanQrBtn" class="btn btn-info" type="button">Scan QR</button>
         <button id="toggleVoiceBtn" class="btn btn-secondary" type="button">Voice: On</button>
         <button id="restartBtn" class="btn btn-secondary" type="button">Restart</button>
       </div>
@@ -577,10 +617,23 @@
         <li>Wrong pick: no point and streak resets to 0.</li>
         <li>Streak bonus: streak 3+ gives +2 points, streak 5+ gives +3 points.</li>
         <li>If timer runs out, that team loses streak and turn switches.</li>
-        <li>After several picks, category switches automatically.</li>
+        <li>Classic mode chooses a random category each turn.</li>
+        <li>Speedrun mode uses phones only, both teams score for 60 seconds at the same time.</li>
       </ul>
       <p>Voice mode tips: say the visible item name like "lion" or "moss", or say the item number like "one", "two", "three", or "four". You can also say "help", "stop listening", and "start listening".</p>
       <button id="closeHelpBtn" class="btn btn-primary" type="button">Close</button>
+    </section>
+  </div>
+
+  <div id="qrScannerBackdrop" class="modal-backdrop hidden">
+    <section class="modal" role="dialog" aria-modal="true" aria-labelledby="scannerTitle">
+      <h2 id="scannerTitle">Scan A QR Code</h2>
+      <p>Point your camera at a team QR code. Timer pauses while scanner is open.</p>
+      <video id="scannerVideo" class="scanner-video" autoplay playsinline muted></video>
+      <p id="scannerStatus" class="scanner-status">Preparing camera...</p>
+      <div class="setup-actions" style="margin-top:0.6rem;">
+        <button id="closeScannerBtn" class="btn btn-primary" type="button">Close Scanner</button>
+      </div>
     </section>
   </div>
 
@@ -619,21 +672,28 @@
       currentCategoryKey: "",
       currentItems: [],
       teamTurn: "A",
+      mode: "classic",
       teams: {
         A: { name: "Team A", players: 3, score: 0, streak: 0 },
         B: { name: "Team B", players: 3, score: 0, streak: 0 }
       },
       turnSeconds: 12,
+      speedrunSeconds: 60,
       timeLeft: 12,
       timerId: null,
-      picksPerCategory: randomInt(6, 10),
-      picksInCategory: 0,
       isLocked: false,
       gameStarted: false,
+      roundOver: false,
       voiceEnabled: true,
       voiceSupported: false,
       voiceWanted: false,
       recognition: null,
+      qrScanner: {
+        stream: null,
+        rafId: null,
+        isOpen: false,
+        resumeTimerAfterClose: false
+      },
       phonesEnabled: false,
       remote: {
         sessionId: "",
@@ -652,6 +712,7 @@
       teamAPlayersInput: document.getElementById("teamAPlayersInput"),
       teamBPlayersInput: document.getElementById("teamBPlayersInput"),
       timerInput: document.getElementById("timerInput"),
+      gameModeInput: document.getElementById("gameModeInput"),
       publicBaseUrlInput: document.getElementById("publicBaseUrlInput"),
       voiceEnabledInput: document.getElementById("voiceEnabledInput"),
       phonesEnabledInput: document.getElementById("phonesEnabledInput"),
@@ -660,6 +721,7 @@
       restartBtn: document.getElementById("restartBtn"),
       helpGameBtn: document.getElementById("helpGameBtn"),
       reconnectPhonesBtn: document.getElementById("reconnectPhonesBtn"),
+      scanQrBtn: document.getElementById("scanQrBtn"),
       toggleVoiceBtn: document.getElementById("toggleVoiceBtn"),
       categoryName: document.getElementById("categoryName"),
       turnStatus: document.getElementById("turnStatus"),
@@ -691,7 +753,11 @@
       helpModalBackdrop: document.getElementById("helpModalBackdrop"),
       closeHelpBtn: document.getElementById("closeHelpBtn"),
       reconnectOverlay: document.getElementById("reconnectOverlay"),
-      reconnectOverlayText: document.getElementById("reconnectOverlayText")
+      reconnectOverlayText: document.getElementById("reconnectOverlayText"),
+      qrScannerBackdrop: document.getElementById("qrScannerBackdrop"),
+      scannerVideo: document.getElementById("scannerVideo"),
+      scannerStatus: document.getElementById("scannerStatus"),
+      closeScannerBtn: document.getElementById("closeScannerBtn")
     };
 
     initVoiceSupport();
@@ -704,13 +770,23 @@
     els.helpSetupBtn.addEventListener("click", openHelpModal);
     els.helpGameBtn.addEventListener("click", openHelpModal);
     els.reconnectPhonesBtn.addEventListener("click", reconnectPhonesDuringGame);
+    els.scanQrBtn.addEventListener("click", openQrScanner);
     els.closeHelpBtn.addEventListener("click", closeHelpModal);
+    els.closeScannerBtn.addEventListener("click", closeQrScanner);
+    els.gameModeInput.addEventListener("change", onGameModeChange);
     els.helpModalBackdrop.addEventListener("click", event => {
       if (event.target === els.helpModalBackdrop) {
         closeHelpModal();
       }
     });
+    els.qrScannerBackdrop.addEventListener("click", event => {
+      if (event.target === els.qrScannerBackdrop) {
+        closeQrScanner();
+      }
+    });
     els.toggleVoiceBtn.addEventListener("click", toggleVoiceMode);
+
+    onGameModeChange();
 
     function initVoiceSupport() {
       const SpeechRecognitionClass = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -758,12 +834,19 @@
       state.teams.B.name = safeTeamName(els.teamBNameInput.value, "Team B");
       state.teams.A.players = safePlayerCount(els.teamAPlayersInput.value);
       state.teams.B.players = safePlayerCount(els.teamBPlayersInput.value);
+      state.mode = els.gameModeInput.value === "speedrun" ? "speedrun" : "classic";
       state.turnSeconds = safeTimerSeconds(els.timerInput.value);
       state.voiceEnabled = state.voiceSupported && els.voiceEnabledInput.checked;
       state.phonesEnabled = els.phonesEnabledInput.checked;
 
+      if (state.mode === "speedrun") {
+        state.phonesEnabled = true;
+        els.phonesEnabledInput.checked = true;
+      }
+
       resetGameStats();
       state.gameStarted = true;
+      state.roundOver = false;
 
       els.setupScreen.classList.add("hidden");
       els.gameScreen.classList.remove("hidden");
@@ -795,11 +878,25 @@
       stopTurnTimer();
       stopVoiceRecognition();
       stopPhoneControllers();
+      closeQrScanner();
       state.gameStarted = false;
       state.isLocked = false;
+      state.roundOver = false;
       els.gameScreen.classList.add("hidden");
       els.setupScreen.classList.remove("hidden");
       closeHelpModal();
+    }
+
+    function onGameModeChange() {
+      const speedrun = els.gameModeInput.value === "speedrun";
+      els.timerInput.disabled = speedrun;
+      if (speedrun) {
+        els.timerInput.value = "60";
+      }
+      els.phonesEnabledInput.disabled = speedrun;
+      if (speedrun) {
+        els.phonesEnabledInput.checked = true;
+      }
     }
 
     function openHelpModal() {
@@ -970,6 +1067,10 @@
     }
 
     function processVoiceCommand(rawTranscript) {
+      if (state.mode === "speedrun") {
+        return;
+      }
+
       const transcript = normalizeSpeechText(rawTranscript);
 
       if (!transcript) {
@@ -1058,9 +1159,7 @@
       state.teams.B.score = 0;
       state.teams.A.streak = 0;
       state.teams.B.streak = 0;
-      state.picksPerCategory = randomInt(6, 10);
-      state.picksInCategory = 0;
-      state.timeLeft = state.turnSeconds;
+      state.timeLeft = state.mode === "speedrun" ? state.speedrunSeconds : state.turnSeconds;
       els.voiceHeard.textContent = "Heard: -";
     }
 
@@ -1076,8 +1175,6 @@
       const randomKey = keys[Math.floor(Math.random() * keys.length)];
       state.currentCategoryKey = randomKey;
       state.currentItems = generateRoundItems(randomKey);
-      state.picksInCategory = 0;
-      state.picksPerCategory = randomInt(6, 10);
 
       const displayName = randomKey.replaceAll("_", " ").replace(/\b\w/g, c => c.toUpperCase());
       els.categoryName.textContent = displayName;
@@ -1109,10 +1206,11 @@
       els.itemsContainer.innerHTML = "";
 
       state.currentItems.forEach((item, index) => {
+        const parsed = splitItemText(item.text);
         const button = document.createElement("button");
         button.className = "item-btn";
         button.type = "button";
-        button.textContent = `${index + 1}. ${item.text}`;
+        button.innerHTML = `<span class="item-emoji">${parsed.emoji}</span><span class="item-label">${index + 1}. ${parsed.label}</span>`;
         button.setAttribute("data-index", String(index));
         button.addEventListener("click", onItemClick);
         els.itemsContainer.appendChild(button);
@@ -1128,13 +1226,22 @@
     }
 
     function onItemClick(event) {
+      if (state.mode === "speedrun") {
+        els.hint.textContent = "Speedrun uses phone picks only so both teams can play simultaneously.";
+        return;
+      }
+
       const button = event.currentTarget;
       const index = Number(button.getAttribute("data-index"));
       handleItemSelection(button, index);
     }
 
-    function handleItemSelection(button, index) {
+    function handleItemSelection(button, index, sourceTeam = state.teamTurn) {
       if (!state.gameStarted || state.isLocked) {
+        return;
+      }
+
+      if (state.roundOver) {
         return;
       }
 
@@ -1145,20 +1252,21 @@
 
       state.isLocked = true;
       disableAllItems();
-      stopTurnTimer();
+      if (state.mode === "classic") {
+        stopTurnTimer();
+      }
 
-      const team = state.teamTurn;
+      const team = sourceTeam === "B" ? "B" : "A";
       const teamStats = state.teams[team];
 
       if (item.isCorrect) {
         let points = 1;
         teamStats.streak += 1;
 
-        // Optional streak bonuses for exciting runs.
-        if (teamStats.streak >= 5) {
+        if (state.mode === "classic" && teamStats.streak >= 5) {
           points += 3;
           els.hint.textContent = `${teamStats.name} got a +3 streak bonus!`;
-        } else if (teamStats.streak >= 3) {
+        } else if (state.mode === "classic" && teamStats.streak >= 3) {
           points += 2;
           els.hint.textContent = `${teamStats.name} got a +2 streak bonus!`;
         } else {
@@ -1176,25 +1284,25 @@
       }
 
       renderScores();
-      state.picksInCategory += 1;
       updatePickCounter();
 
       window.setTimeout(() => {
-        moveToNextTurn();
+        if (state.mode === "classic") {
+          moveToNextTurn();
+        } else {
+          chooseNewCategory();
+          renderItems();
+          renderTurn();
+        }
         state.isLocked = false;
-      }, 380);
+      }, state.mode === "classic" ? 380 : 140);
     }
 
     function moveToNextTurn() {
       const previousTeam = state.teamTurn;
       state.teamTurn = previousTeam === "A" ? "B" : "A";
 
-      const shouldSwitchCategory = state.picksInCategory >= state.picksPerCategory;
-      if (shouldSwitchCategory) {
-        chooseNewCategory();
-      }
-
-      state.currentItems = generateRoundItems(state.currentCategoryKey);
+      chooseNewCategory();
       renderItems();
       renderTurn();
       startTurnTimer();
@@ -1217,6 +1325,15 @@
     }
 
     function renderTurn() {
+      if (state.mode === "speedrun") {
+        els.turnStatus.textContent = "Speedrun live: both teams tap on phones now";
+        els.turnStatus.className = "status";
+        els.teamACard.classList.add("active");
+        els.teamBCard.classList.add("active");
+        sendActiveTeamToPhones("BOTH");
+        return;
+      }
+
       const current = state.teamTurn;
       const other = current === "A" ? "B" : "A";
       const currentTeam = state.teams[current];
@@ -1342,7 +1459,7 @@
     }
 
     function handlePhonePick(team, value) {
-      if (!state.gameStarted || state.isLocked) {
+      if (!state.gameStarted || state.isLocked || state.roundOver) {
         return;
       }
 
@@ -1353,12 +1470,25 @@
         return;
       }
 
+      if (state.mode === "speedrun") {
+        selectItemByIndexFromTeam(safeValue - 1, safeTeam);
+        return;
+      }
+
       if (safeTeam !== state.teamTurn) {
         els.hint.textContent = `${state.teams[safeTeam].name} pressed out of turn.`;
         return;
       }
 
       selectItemByIndex(safeValue - 1);
+    }
+
+    function selectItemByIndexFromTeam(index, team) {
+      const button = els.itemsContainer.querySelector(`.item-btn[data-index="${index}"]`);
+      if (!button) {
+        return;
+      }
+      handleItemSelection(button, index, team);
     }
 
     function sendActiveTeamToPhones(team) {
@@ -1406,13 +1536,16 @@
     }
 
     function updatePickCounter() {
-      const currentPick = Math.min(state.picksInCategory + 1, state.picksPerCategory);
-      els.pickCounter.textContent = `Pick ${currentPick} of ${state.picksPerCategory} in this category`;
+      if (state.mode === "speedrun") {
+        els.pickCounter.textContent = "Random category every pick during speedrun";
+      } else {
+        els.pickCounter.textContent = "Random category every turn";
+      }
     }
 
     function startTurnTimer() {
       stopTurnTimer();
-      state.timeLeft = state.turnSeconds;
+      state.timeLeft = state.mode === "speedrun" ? state.speedrunSeconds : state.turnSeconds;
       renderTimer();
 
       state.timerId = window.setInterval(() => {
@@ -1490,6 +1623,11 @@
       }
 
       stopTurnTimer();
+      if (state.mode === "speedrun") {
+        endSpeedrunRound();
+        return;
+      }
+
       const team = state.teamTurn;
       state.teams[team].streak = 0;
       els.hint.textContent = `${state.teams[team].name} ran out of time. Turn switched.`;
@@ -1499,7 +1637,129 @@
     }
 
     function renderTimer() {
-      els.timerDisplay.textContent = `Time Left: ${Math.max(0, state.timeLeft)}s`;
+      if (state.mode === "speedrun") {
+        els.timerDisplay.textContent = `Speedrun: ${Math.max(0, state.timeLeft)}s left`;
+      } else {
+        els.timerDisplay.textContent = `Time Left: ${Math.max(0, state.timeLeft)}s`;
+      }
+    }
+
+    function endSpeedrunRound() {
+      if (state.roundOver) {
+        return;
+      }
+
+      state.roundOver = true;
+      state.isLocked = true;
+      disableAllItems();
+      playSound("timeout");
+
+      if (state.teams.A.score === state.teams.B.score) {
+        els.hint.textContent = `Speedrun finished in a tie at ${state.teams.A.score} - ${state.teams.B.score}.`;
+      } else {
+        const winner = state.teams.A.score > state.teams.B.score ? state.teams.A : state.teams.B;
+        els.hint.textContent = `Speedrun complete! ${winner.name} wins.`;
+      }
+
+      els.turnStatus.textContent = "Speedrun complete. Press Restart for a new game.";
+      sendActiveTeamToPhones("NONE");
+    }
+
+    function splitItemText(itemText) {
+      const text = String(itemText || "").trim();
+      const parts = text.split(" ");
+      const last = parts[parts.length - 1] || "";
+      const hasEmoji = /[^\u0000-\u007F]/.test(last);
+      if (!hasEmoji) {
+        return { label: text, emoji: "❓" };
+      }
+      return {
+        label: parts.slice(0, -1).join(" ") || text,
+        emoji: last
+      };
+    }
+
+    async function openQrScanner() {
+      if (state.qrScanner.isOpen) {
+        return;
+      }
+
+      state.qrScanner.isOpen = true;
+      state.qrScanner.resumeTimerAfterClose = Boolean(state.timerId && state.gameStarted && !state.roundOver);
+      if (state.qrScanner.resumeTimerAfterClose) {
+        stopTurnTimer();
+      }
+
+      els.qrScannerBackdrop.classList.remove("hidden");
+      els.scannerStatus.textContent = "Preparing camera...";
+
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+        state.qrScanner.stream = stream;
+        els.scannerVideo.srcObject = stream;
+        await els.scannerVideo.play();
+        els.scannerStatus.textContent = "Scanning...";
+        scanQrLoop();
+      } catch (error) {
+        els.scannerStatus.textContent = "Could not open camera. Check browser permissions.";
+      }
+    }
+
+    function closeQrScanner() {
+      if (!state.qrScanner.isOpen) {
+        return;
+      }
+
+      state.qrScanner.isOpen = false;
+      if (state.qrScanner.rafId) {
+        window.cancelAnimationFrame(state.qrScanner.rafId);
+        state.qrScanner.rafId = null;
+      }
+
+      if (state.qrScanner.stream) {
+        state.qrScanner.stream.getTracks().forEach(track => track.stop());
+        state.qrScanner.stream = null;
+      }
+
+      els.scannerVideo.srcObject = null;
+      els.qrScannerBackdrop.classList.add("hidden");
+
+      if (state.qrScanner.resumeTimerAfterClose && state.gameStarted && !state.roundOver) {
+        resumeTurnTimer();
+      }
+      state.qrScanner.resumeTimerAfterClose = false;
+    }
+
+    async function scanQrLoop() {
+      if (!state.qrScanner.isOpen) {
+        return;
+      }
+
+      if (!("BarcodeDetector" in window)) {
+        els.scannerStatus.textContent = "QR scanning is not supported in this browser. Use generated QR images instead.";
+        return;
+      }
+
+      try {
+        if (!scanQrLoop.detector) {
+          scanQrLoop.detector = new BarcodeDetector({ formats: ["qr_code"] });
+        }
+
+        const codes = await scanQrLoop.detector.detect(els.scannerVideo);
+        if (codes && codes[0] && codes[0].rawValue) {
+          const value = String(codes[0].rawValue).trim();
+          els.scannerStatus.textContent = `Scanned: ${value}`;
+          if (/^https?:\/\//i.test(value)) {
+            window.open(value, "_blank", "noopener,noreferrer");
+          }
+          closeQrScanner();
+          return;
+        }
+      } catch (error) {
+        els.scannerStatus.textContent = "Scanner is active but no code detected yet.";
+      }
+
+      state.qrScanner.rafId = window.requestAnimationFrame(scanQrLoop);
     }
 
     function sampleUnique(arr, count) {
