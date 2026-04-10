@@ -168,6 +168,16 @@
       font-size: 0.95rem;
     }
 
+    .timer-pill {
+      font-size: clamp(1.15rem, 2.4vw, 1.6rem);
+      font-weight: 800;
+      padding: 0.45rem 0.95rem;
+      border-width: 3px;
+      border-color: rgba(0, 0, 0, 0.14);
+      min-width: 250px;
+      text-align: center;
+    }
+
     .category-wrap {
       text-align: center;
       margin-top: 0.5rem;
@@ -375,6 +385,35 @@
       opacity: 0.9;
     }
 
+    .finish-screen {
+      width: min(760px, 100%);
+      background: var(--panel);
+      border-radius: 20px;
+      padding: 1.1rem;
+      box-shadow: var(--shadow);
+      border: 3px solid rgba(46, 125, 50, 0.16);
+      text-align: center;
+    }
+
+    .finish-title {
+      margin: 0;
+      color: var(--accent);
+      font-size: clamp(1.4rem, 2.8vw, 2rem);
+    }
+
+    .finish-winner {
+      margin: 0.7rem 0 0;
+      font-size: clamp(1.2rem, 2.4vw, 1.7rem);
+      font-weight: 800;
+      color: var(--accent-2);
+    }
+
+    .finish-score {
+      margin: 0.45rem 0 0;
+      font-size: 1.05rem;
+      opacity: 0.9;
+    }
+
     .modal {
       width: min(640px, 100%);
       background: #fff;
@@ -384,21 +423,15 @@
       border: 2px solid rgba(0, 0, 0, 0.09);
     }
 
-    .scanner-video {
-      width: 100%;
-      border-radius: 10px;
-      background: #000;
-      min-height: 200px;
-      max-height: 340px;
-      object-fit: cover;
-      margin-top: 0.5rem;
+    .scanner-qr-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.8rem;
+      margin-top: 0.7rem;
     }
 
-    .scanner-status {
-      margin-top: 0.6rem;
-      font-size: 0.95rem;
-      opacity: 0.9;
-      min-height: 1.2rem;
+    .scanner-qr-grid .qr-card img {
+      width: min(200px, 100%);
     }
 
     .modal h2 {
@@ -559,14 +592,14 @@
       <div class="toolbar-actions">
         <button id="helpGameBtn" class="btn btn-info" type="button">Help</button>
         <button id="reconnectPhonesBtn" class="btn btn-info" type="button">Reconnect Phones</button>
-        <button id="scanQrBtn" class="btn btn-info" type="button">Scan QR</button>
+        <button id="scanQrBtn" class="btn btn-info" type="button">Show QR Codes</button>
         <button id="toggleVoiceBtn" class="btn btn-secondary" type="button">Voice: On</button>
         <button id="restartBtn" class="btn btn-secondary" type="button">Restart</button>
       </div>
     </div>
 
     <div class="top-metrics">
-      <span id="timerDisplay" class="pill">Time Left: 12s</span>
+      <span id="timerDisplay" class="pill timer-pill">Time Left: 12s</span>
       <span id="totalScoreDisplay" class="pill">Total: 0 - 0</span>
       <span id="voiceStatus" class="pill">Voice: Ready</span>
       <span id="phoneStatus" class="pill">Phones: Off</span>
@@ -608,6 +641,16 @@
     <p id="voiceHeard" class="voice-live">Heard: -</p>
   </main>
 
+  <main id="finishScreen" class="finish-screen hidden" aria-live="polite">
+    <h1 class="finish-title">Round Complete</h1>
+    <p id="finishWinner" class="finish-winner">Winner: Team A</p>
+    <p id="finishReason" class="finish-score">Time is up.</p>
+    <p id="finishScore" class="finish-score">Team A 0 - 0 Team B</p>
+    <div class="setup-actions" style="margin-top:0.9rem;">
+      <button id="finishRestartBtn" class="btn btn-primary" type="button">Back To Setup</button>
+    </div>
+  </main>
+
   <div id="helpModalBackdrop" class="modal-backdrop hidden">
     <section class="modal" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
       <h2 id="helpTitle">How To Play</h2>
@@ -627,12 +670,22 @@
 
   <div id="qrScannerBackdrop" class="modal-backdrop hidden">
     <section class="modal" role="dialog" aria-modal="true" aria-labelledby="scannerTitle">
-      <h2 id="scannerTitle">Scan A QR Code</h2>
-      <p>Point your camera at a team QR code. Timer pauses while scanner is open.</p>
-      <video id="scannerVideo" class="scanner-video" autoplay playsinline muted></video>
-      <p id="scannerStatus" class="scanner-status">Preparing camera...</p>
+      <h2 id="scannerTitle">Scan Phone QR Codes</h2>
+      <p>Have each phone scan its team code below. Timer pauses while this panel is open.</p>
+      <div class="scanner-qr-grid">
+        <article class="qr-card">
+          <h3 id="scannerQrATitle" style="margin:0 0 0.35rem;">Team A</h3>
+          <img id="scannerQrAImg" alt="Team A phone QR code" />
+          <p id="scannerQrALink" class="qr-link"></p>
+        </article>
+        <article class="qr-card">
+          <h3 id="scannerQrBTitle" style="margin:0 0 0.35rem;">Team B</h3>
+          <img id="scannerQrBImg" alt="Team B phone QR code" />
+          <p id="scannerQrBLink" class="qr-link"></p>
+        </article>
+      </div>
       <div class="setup-actions" style="margin-top:0.6rem;">
-        <button id="closeScannerBtn" class="btn btn-primary" type="button">Close Scanner</button>
+        <button id="closeScannerBtn" class="btn btn-primary" type="button">Close</button>
       </div>
     </section>
   </div>
@@ -678,6 +731,8 @@
         B: { name: "Team B", players: 3, score: 0, streak: 0 }
       },
       turnSeconds: 12,
+      classicMaxSeconds: 120,
+      classicTimeLeft: 120,
       speedrunSeconds: 60,
       timeLeft: 12,
       timerId: null,
@@ -689,8 +744,6 @@
       voiceWanted: false,
       recognition: null,
       qrScanner: {
-        stream: null,
-        rafId: null,
         isOpen: false,
         resumeTimerAfterClose: false
       },
@@ -707,6 +760,7 @@
     const els = {
       setupScreen: document.getElementById("setupScreen"),
       gameScreen: document.getElementById("gameScreen"),
+      finishScreen: document.getElementById("finishScreen"),
       teamANameInput: document.getElementById("teamANameInput"),
       teamBNameInput: document.getElementById("teamBNameInput"),
       teamAPlayersInput: document.getElementById("teamAPlayersInput"),
@@ -755,15 +809,24 @@
       reconnectOverlay: document.getElementById("reconnectOverlay"),
       reconnectOverlayText: document.getElementById("reconnectOverlayText"),
       qrScannerBackdrop: document.getElementById("qrScannerBackdrop"),
-      scannerVideo: document.getElementById("scannerVideo"),
-      scannerStatus: document.getElementById("scannerStatus"),
-      closeScannerBtn: document.getElementById("closeScannerBtn")
+      closeScannerBtn: document.getElementById("closeScannerBtn"),
+      scannerQrATitle: document.getElementById("scannerQrATitle"),
+      scannerQrBTitle: document.getElementById("scannerQrBTitle"),
+      scannerQrAImg: document.getElementById("scannerQrAImg"),
+      scannerQrBImg: document.getElementById("scannerQrBImg"),
+      scannerQrALink: document.getElementById("scannerQrALink"),
+      scannerQrBLink: document.getElementById("scannerQrBLink"),
+      finishWinner: document.getElementById("finishWinner"),
+      finishReason: document.getElementById("finishReason"),
+      finishScore: document.getElementById("finishScore"),
+      finishRestartBtn: document.getElementById("finishRestartBtn")
     };
 
     initVoiceSupport();
 
     els.startGameBtn.addEventListener("click", startGameFromSetup);
     els.restartBtn.addEventListener("click", restartToSetup);
+    els.finishRestartBtn.addEventListener("click", restartToSetup);
     els.phonesEnabledInput.addEventListener("change", onPhonesToggleChange);
     els.publicBaseUrlInput.addEventListener("change", onPublicBaseUrlChange);
     els.publicBaseUrlInput.addEventListener("blur", onPublicBaseUrlBlur);
@@ -849,6 +912,7 @@
       state.roundOver = false;
 
       els.setupScreen.classList.add("hidden");
+      els.finishScreen.classList.add("hidden");
       els.gameScreen.classList.remove("hidden");
 
       applyTeamLabels();
@@ -883,6 +947,7 @@
       state.isLocked = false;
       state.roundOver = false;
       els.gameScreen.classList.add("hidden");
+      els.finishScreen.classList.add("hidden");
       els.setupScreen.classList.remove("hidden");
       closeHelpModal();
     }
@@ -1159,6 +1224,7 @@
       state.teams.B.score = 0;
       state.teams.A.streak = 0;
       state.teams.B.streak = 0;
+      state.classicTimeLeft = state.classicMaxSeconds;
       state.timeLeft = state.mode === "speedrun" ? state.speedrunSeconds : state.turnSeconds;
       els.voiceHeard.textContent = "Heard: -";
     }
@@ -1549,8 +1615,16 @@
       renderTimer();
 
       state.timerId = window.setInterval(() => {
+        if (state.mode === "classic") {
+          state.classicTimeLeft -= 1;
+        }
         state.timeLeft -= 1;
         renderTimer();
+
+        if (state.mode === "classic" && state.classicTimeLeft <= 0) {
+          endGame("Classic time cap reached.");
+          return;
+        }
 
         if (state.timeLeft <= 0) {
           onTurnTimeout();
@@ -1563,8 +1637,16 @@
       renderTimer();
 
       state.timerId = window.setInterval(() => {
+        if (state.mode === "classic") {
+          state.classicTimeLeft -= 1;
+        }
         state.timeLeft -= 1;
         renderTimer();
+
+        if (state.mode === "classic" && state.classicTimeLeft <= 0) {
+          endGame("Classic time cap reached.");
+          return;
+        }
 
         if (state.timeLeft <= 0) {
           onTurnTimeout();
@@ -1624,7 +1706,12 @@
 
       stopTurnTimer();
       if (state.mode === "speedrun") {
-        endSpeedrunRound();
+        endGame("Speedrun timer ended.");
+        return;
+      }
+
+      if (state.classicTimeLeft <= 0) {
+        endGame("Classic time cap reached.");
         return;
       }
 
@@ -1640,28 +1727,39 @@
       if (state.mode === "speedrun") {
         els.timerDisplay.textContent = `Speedrun: ${Math.max(0, state.timeLeft)}s left`;
       } else {
-        els.timerDisplay.textContent = `Time Left: ${Math.max(0, state.timeLeft)}s`;
+        els.timerDisplay.textContent = `Turn: ${Math.max(0, state.timeLeft)}s | Match: ${Math.max(0, state.classicTimeLeft)}s`;
       }
     }
 
-    function endSpeedrunRound() {
+    function endGame(reasonText) {
       if (state.roundOver) {
         return;
       }
 
       state.roundOver = true;
       state.isLocked = true;
+      state.gameStarted = false;
+      stopTurnTimer();
+      stopVoiceRecognition();
       disableAllItems();
       playSound("timeout");
 
-      if (state.teams.A.score === state.teams.B.score) {
-        els.hint.textContent = `Speedrun finished in a tie at ${state.teams.A.score} - ${state.teams.B.score}.`;
-      } else {
-        const winner = state.teams.A.score > state.teams.B.score ? state.teams.A : state.teams.B;
-        els.hint.textContent = `Speedrun complete! ${winner.name} wins.`;
+      const scoreA = state.teams.A.score;
+      const scoreB = state.teams.B.score;
+
+      let winnerLine = "It's a tie!";
+      if (scoreA > scoreB) {
+        winnerLine = `${state.teams.A.name} wins!`;
+      } else if (scoreB > scoreA) {
+        winnerLine = `${state.teams.B.name} wins!`;
       }
 
-      els.turnStatus.textContent = "Speedrun complete. Press Restart for a new game.";
+      els.finishWinner.textContent = winnerLine;
+      els.finishReason.textContent = reasonText || "Round complete.";
+      els.finishScore.textContent = `${state.teams.A.name} ${scoreA} - ${scoreB} ${state.teams.B.name}`;
+      els.gameScreen.classList.add("hidden");
+      els.finishScreen.classList.remove("hidden");
+
       sendActiveTeamToPhones("NONE");
     }
 
@@ -1684,25 +1782,33 @@
         return;
       }
 
+      if (!state.phonesEnabled) {
+        els.hint.textContent = "Enable phone controllers first to generate QR codes.";
+        return;
+      }
+
+      if (!state.remote.sessionId || !state.remote.hostKey) {
+        await setupPhoneControllers();
+      }
+
+      if (!els.qrAImg.src || !els.qrBImg.src) {
+        els.hint.textContent = "QR codes are not ready yet. Try reconnecting phones.";
+        return;
+      }
+
       state.qrScanner.isOpen = true;
       state.qrScanner.resumeTimerAfterClose = Boolean(state.timerId && state.gameStarted && !state.roundOver);
       if (state.qrScanner.resumeTimerAfterClose) {
         stopTurnTimer();
       }
 
+      els.scannerQrATitle.textContent = els.qrATitle.textContent || state.teams.A.name;
+      els.scannerQrBTitle.textContent = els.qrBTitle.textContent || state.teams.B.name;
+      els.scannerQrAImg.src = els.qrAImg.src;
+      els.scannerQrBImg.src = els.qrBImg.src;
+      els.scannerQrALink.textContent = els.qrALink.textContent;
+      els.scannerQrBLink.textContent = els.qrBLink.textContent;
       els.qrScannerBackdrop.classList.remove("hidden");
-      els.scannerStatus.textContent = "Preparing camera...";
-
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
-        state.qrScanner.stream = stream;
-        els.scannerVideo.srcObject = stream;
-        await els.scannerVideo.play();
-        els.scannerStatus.textContent = "Scanning...";
-        scanQrLoop();
-      } catch (error) {
-        els.scannerStatus.textContent = "Could not open camera. Check browser permissions.";
-      }
     }
 
     function closeQrScanner() {
@@ -1711,55 +1817,12 @@
       }
 
       state.qrScanner.isOpen = false;
-      if (state.qrScanner.rafId) {
-        window.cancelAnimationFrame(state.qrScanner.rafId);
-        state.qrScanner.rafId = null;
-      }
-
-      if (state.qrScanner.stream) {
-        state.qrScanner.stream.getTracks().forEach(track => track.stop());
-        state.qrScanner.stream = null;
-      }
-
-      els.scannerVideo.srcObject = null;
       els.qrScannerBackdrop.classList.add("hidden");
 
       if (state.qrScanner.resumeTimerAfterClose && state.gameStarted && !state.roundOver) {
         resumeTurnTimer();
       }
       state.qrScanner.resumeTimerAfterClose = false;
-    }
-
-    async function scanQrLoop() {
-      if (!state.qrScanner.isOpen) {
-        return;
-      }
-
-      if (!("BarcodeDetector" in window)) {
-        els.scannerStatus.textContent = "QR scanning is not supported in this browser. Use generated QR images instead.";
-        return;
-      }
-
-      try {
-        if (!scanQrLoop.detector) {
-          scanQrLoop.detector = new BarcodeDetector({ formats: ["qr_code"] });
-        }
-
-        const codes = await scanQrLoop.detector.detect(els.scannerVideo);
-        if (codes && codes[0] && codes[0].rawValue) {
-          const value = String(codes[0].rawValue).trim();
-          els.scannerStatus.textContent = `Scanned: ${value}`;
-          if (/^https?:\/\//i.test(value)) {
-            window.open(value, "_blank", "noopener,noreferrer");
-          }
-          closeQrScanner();
-          return;
-        }
-      } catch (error) {
-        els.scannerStatus.textContent = "Scanner is active but no code detected yet.";
-      }
-
-      state.qrScanner.rafId = window.requestAnimationFrame(scanQrLoop);
     }
 
     function sampleUnique(arr, count) {
